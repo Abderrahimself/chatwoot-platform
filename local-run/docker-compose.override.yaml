@@ -1,0 +1,16 @@
+# Operational overrides layered on top of the upstream production compose file.
+# The upstream file is never edited; this file is passed as a second -f argument.
+#
+# - PostgreSQL and Redis are not published to host ports: the application
+#   reaches them by service name over the compose network, so publishing
+#   only invites port conflicts on the host.
+# - POSTGRES_PASSWORD is interpolated from the project .env instead of the
+#   upstream hardcoded empty value (environment entries merge per key).
+services:
+  postgres:
+    ports: !reset []
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+  redis:
+    ports: !reset []
