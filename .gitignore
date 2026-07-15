@@ -5,6 +5,11 @@
 tfplan
 **/tfplan
 *.tfplan
+
+# Ansible fetched artifacts — kubeconfig holds cluster credentials
+**/.artifacts/
+**/kubeconfig
+*.kubeconfig
 **/.env
 **/.env.*
 !.env.example

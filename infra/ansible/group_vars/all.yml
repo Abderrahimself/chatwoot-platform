@@ -1,0 +1,7 @@
+---
+# Pinned k3s version. Bump deliberately; never track a moving channel.
+k3s_version: "v1.36.2+k3s1"
+
+# Where the cluster kubeconfig is written on the laptop after install.
+# Contains cluster credentials — gitignored, never committed.
+kubeconfig_local_path: "{{ playbook_dir }}/.artifacts/kubeconfig"

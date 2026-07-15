@@ -1,0 +1,69 @@
+---
+# Install single-node k3s at a pinned version, idempotently. The bundled
+# add-ons are kept on purpose: Traefik (ingress, later OTLP traces),
+# local-path (PVCs for PostgreSQL/Redis/attachments), servicelb, metrics-server.
+- name: Check the installed k3s version
+  ansible.builtin.command: k3s --version
+  register: k3s_installed
+  changed_when: false
+  failed_when: false
+
+- name: Download the k3s install script
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /usr/local/bin/k3s-install.sh
+    mode: "0755"
+  become: true
+  when: k3s_version not in (k3s_installed.stdout | default(''))
+
+- name: Install k3s (pinned, single-node server)
+  ansible.builtin.command: /usr/local/bin/k3s-install.sh
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    INSTALL_K3S_EXEC: "server"
+  become: true
+  when: k3s_version not in (k3s_installed.stdout | default(''))
+
+- name: Ensure the k3s service is enabled and running
+  ansible.builtin.systemd:
+    name: k3s
+    enabled: true
+    state: started
+  become: true
+
+- name: Wait for the node to report Ready
+  ansible.builtin.command: k3s kubectl get nodes --no-headers
+  register: node_status
+  until: "'Ready' in node_status.stdout"
+  retries: 30
+  delay: 5
+  changed_when: false
+  become: true
+
+- name: Ensure the local artifacts directory exists
+  ansible.builtin.file:
+    path: "{{ kubeconfig_local_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+
+- name: Read the cluster kubeconfig from the server
+  ansible.builtin.slurp:
+    src: /etc/rancher/k3s/k3s.yaml
+  register: k3s_kubeconfig
+  become: true
+
+- name: Write the kubeconfig to the laptop with the server URL rewritten
+  ansible.builtin.copy:
+    content: >-
+      {{ k3s_kubeconfig.content | b64decode
+         | replace('https://127.0.0.1:6443', 'https://' ~ ansible_host ~ ':6443') }}
+    dest: "{{ kubeconfig_local_path }}"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Show how to use the kubeconfig
+  ansible.builtin.debug:
+    msg: "kubeconfig written to {{ kubeconfig_local_path }} — use: export KUBECONFIG={{ kubeconfig_local_path }}"

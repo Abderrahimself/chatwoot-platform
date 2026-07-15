@@ -1,0 +1,12 @@
+---
+# Minimal base preparation. The Ubuntu cloud image is already close to what
+# k3s needs; this only guarantees the few packages the installer relies on.
+- name: Ensure base packages are present
+  ansible.builtin.apt:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true

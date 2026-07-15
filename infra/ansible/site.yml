@@ -1,0 +1,7 @@
+---
+- name: Configure the single-node k3s server
+  hosts: k3s
+  gather_facts: true
+  roles:
+    - base
+    - k3s
