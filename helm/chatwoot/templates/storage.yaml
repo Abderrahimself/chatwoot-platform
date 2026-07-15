@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "chatwoot.fullname" . }}-storage
+  labels:
+    {{- include "chatwoot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: attachments
+spec:
+  # Shared by web and Sidekiq. ReadWriteOnce is sufficient on a single node
+  # (both pods schedule to the same node and co-mount the local-path volume).
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.attachments.storageSize }}

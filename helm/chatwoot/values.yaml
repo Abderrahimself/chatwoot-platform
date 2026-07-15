@@ -1,0 +1,67 @@
+# Chatwoot application image. Pinned to an upstream release tag — never a
+# moving branch or :latest (project decision D4).
+image:
+  repository: chatwoot/chatwoot
+  tag: v4.15.1
+  pullPolicy: IfNotPresent
+
+# Public URL of the app. Chatwoot bakes FRONTEND_URL into inboxes at creation
+# time, so this must be the final hostname before any inbox is created.
+# nip.io resolves *.10.17.3.165.nip.io to the VM IP with no local DNS config.
+frontendUrl: "http://chatwoot.10.17.3.165.nip.io"
+
+ingress:
+  enabled: true
+  className: traefik
+  host: "chatwoot.10.17.3.165.nip.io"
+
+# Kubernetes Secret holding SECRET_KEY_BASE, POSTGRES_PASSWORD, REDIS_PASSWORD,
+# and the ActiveRecord encryption keys. Created out-of-band with kubectl and
+# never stored in Git (decision D6). See the chart README.
+existingSecret: "chatwoot-secrets"
+
+postgres:
+  image: "pgvector/pgvector:pg16"
+  username: postgres
+  database: chatwoot_production
+  storageSize: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+redis:
+  image: "redis:7.4-alpine"
+  storageSize: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 192Mi
+
+web:
+  replicas: 1
+  railsMaxThreads: 5
+  resources:
+    requests:
+      cpu: 250m
+      memory: 768Mi
+    limits:
+      memory: 1536Mi
+
+sidekiq:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+# Shared ReadWriteOnce volume for Chatwoot attachments (ActiveStorage local
+# disk). Single node, so web and Sidekiq co-mount it. Backed up in week 4 (D8).
+attachments:
+  storageSize: 5Gi

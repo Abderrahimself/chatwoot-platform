@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chatwoot.fullname" . }}-sidekiq
+  labels:
+    {{- include "chatwoot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sidekiq
+spec:
+  replicas: {{ .Values.sidekiq.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: sidekiq
+  template:
+    metadata:
+      labels:
+        {{- include "chatwoot.labels" . | nindent 8 }}
+        app.kubernetes.io/component: sidekiq
+    spec:
+      initContainers:
+        {{- include "chatwoot.waitForDeps" . | nindent 8 }}
+      containers:
+        - name: sidekiq
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "chatwoot.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f sidekiq"]
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.sidekiq.resources | nindent 12 }}
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "chatwoot.fullname" . }}-storage

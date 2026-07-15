@@ -10,3 +10,27 @@
     update_cache: true
     cache_valid_time: 3600
   become: true
+
+# The default resolver chain (VM -> libvirt dnsmasq -> host systemd-resolved ->
+# home router) intermittently returns EAI_AGAIN under the burst of parallel
+# lookups a container image pull generates, which stalls image pulls. Point the
+# node at reliable public resolvers directly. Domains=~. routes all names to the
+# global DNS, overriding the per-link DHCP resolver.
+- name: Ensure systemd-resolved drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Configure reliable upstream DNS for the node
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/10-platform-dns.conf
+    content: |
+      [Resolve]
+      DNS=1.1.1.1 8.8.8.8
+      FallbackDNS=9.9.9.9
+      Domains=~.
+    mode: "0644"
+  become: true
+  notify: Restart systemd-resolved

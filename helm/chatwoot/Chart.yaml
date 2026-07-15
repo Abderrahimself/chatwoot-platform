@@ -1,0 +1,6 @@
+apiVersion: v2
+name: chatwoot
+description: Self-hosted Chatwoot (web, Sidekiq, PostgreSQL, Redis) for single-node k3s
+type: application
+version: 0.1.0
+appVersion: "v4.15.1"

@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "chatwoot.fullname" . }}-migrate
+  labels:
+    {{- include "chatwoot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # Run on install and upgrade, after the main resources exist. The job only
+    # depends on PostgreSQL (waited on below), so it converges even though web
+    # and Sidekiq are held back by their own schema-wait init container.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "chatwoot.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command: ["sh", "-c", "until pg_isready -h {{ include "chatwoot.postgresHost" . }} -U {{ .Values.postgres.username }} -q; do echo waiting for postgres; sleep 2; done"]
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["bundle", "exec", "rails", "db:chatwoot_prepare"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "chatwoot.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
