@@ -5,6 +5,9 @@ metadata:
   labels:
     {{- include "chatwoot.labels" . | nindent 4 }}
     app.kubernetes.io/component: sidekiq
+  annotations:
+    # Deploy after the migration hook (wave 1) has created the schema.
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: {{ .Values.sidekiq.replicas }}
   selector:

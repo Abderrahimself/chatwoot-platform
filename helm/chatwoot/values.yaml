@@ -1,7 +1,7 @@
-# Chatwoot application image. Pinned to an upstream release tag — never a
-# moving branch or :latest (project decision D4).
+# Chatwoot application image — our CI-built, Trivy-scanned image in GHCR.
+# Pinned to an upstream release tag, never a moving branch or :latest (D4).
 image:
-  repository: chatwoot/chatwoot
+  repository: ghcr.io/abderrahimself/chatwoot
   tag: v4.15.1
   pullPolicy: IfNotPresent
 

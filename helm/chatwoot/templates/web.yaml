@@ -20,6 +20,9 @@ metadata:
   labels:
     {{- include "chatwoot.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
+  annotations:
+    # Deploy after the migration hook (wave 1) has created the schema.
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: {{ .Values.web.replicas }}
   selector:
