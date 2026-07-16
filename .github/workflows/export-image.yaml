@@ -1,0 +1,27 @@
+name: Export image as artifact
+# Utility: repackage an already-published GHCR image as a workflow artifact
+# so it can be fetched over a different CDN path than the registry's.
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image reference to export"
+        required: true
+        default: "ghcr.io/abderrahimself/chatwoot:v4.15.1"
+permissions:
+  packages: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull image
+        run: docker pull "${{ inputs.image }}"
+      - name: Save and compress
+        run: docker save "${{ inputs.image }}" | gzip -1 > image.tar.gz
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatwoot-image
+          path: image.tar.gz
+          retention-days: 1
+          compression-level: 0
