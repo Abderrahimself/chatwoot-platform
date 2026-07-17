@@ -3,7 +3,7 @@ name: Build and scan Chatwoot image
 # Builds the Chatwoot container image from the pinned upstream release tag held
 # in our fork, scans it with Trivy, and publishes it to GHCR. Manual trigger so
 # builds are deliberate; the tag to build is an input (defaults to the pinned
-# release). Never builds a moving branch (decision D4).
+# release). Never builds a moving branch.
 #
 # After a successful push, the pipeline closes the GitOps loop: it commits the
 # new tag to helm/chatwoot/values.yaml on main, and Argo CD rolls it out. In a

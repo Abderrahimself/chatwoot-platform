@@ -6,10 +6,11 @@ the declared state; the desired versions live in Git, not in operators' shells.
 ```text
 gitops/
 |-- argocd/                 Argo CD bootstrap (install.sh, pinned version)
+|-- secrets/                SealedSecret manifests (encrypted; safe in Git)
 `-- applications/
     |-- chatwoot/           Argo CD Application -> helm/chatwoot
-    |-- observability/      (week 3)
-    `-- secrets/            (week 3: Sealed Secrets)
+    |-- observability/      (planned)
+    `-- secrets/            Applications: sealed-secrets controller + gitops/secrets sync
 ```
 
 ## Flow

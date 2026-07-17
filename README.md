@@ -59,7 +59,7 @@ All components run as lightweight single replicas with short retention (Promethe
 - [ ] Chatwoot deployment — Helm chart (web, Sidekiq, PostgreSQL, Redis, migrations, ingress)
 - [ ] Image build and scan pipeline — GitHub Actions, Trivy, GHCR
 - [ ] GitOps delivery and drift correction — Argo CD
-- [ ] Secret management — Sealed Secrets
+- [x] Secret management — Sealed Secrets
 - [ ] Observability — metrics, dashboards, centralized logs, tracing
 - [ ] Backup and tested restore — PostgreSQL + attachments
 

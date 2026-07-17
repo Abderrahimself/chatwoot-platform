@@ -7,12 +7,16 @@ subcharts.
 ## Prerequisites
 
 - k3s reachable via the Ansible-fetched kubeconfig.
-- The application secret created out-of-band (never in Git, decision D6).
+- The application Secret present in the namespace (see below).
 
 ## Secret
 
 The chart references an existing Secret (default name `chatwoot-secrets`) and
-never renders secret values itself. Create it once per namespace:
+never renders secret values itself; plaintext secret values never enter Git.
+
+The Secret is managed declaratively as a SealedSecret in `gitops/secrets/`,
+which only the in-cluster sealed-secrets controller can decrypt. To bootstrap
+a brand-new environment, create the plaintext Secret once:
 
 ```bash
 kubectl create namespace chatwoot
@@ -26,7 +30,8 @@ kubectl -n chatwoot create secret generic chatwoot-secrets \
   --from-literal=ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT="$(openssl rand -hex 16)"
 ```
 
-In week 3 this Secret is replaced by a Sealed Secret committed to Git.
+then seal it into Git and let the controller adopt it (see
+`gitops/secrets/README.md`).
 
 ## Install
 

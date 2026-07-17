@@ -31,8 +31,9 @@ kubectl -n argocd port-forward svc/argocd-server 8080:443
 ## Notes
 
 - Version is pinned (`install.sh`), never tracking latest.
-- The application `chatwoot-secrets` Secret is created out of band (kubectl) and
-  is not managed by Argo CD; `prune` therefore never removes it. It becomes a
-  Sealed Secret committed to Git in week 3 (decision D6).
+- The application `chatwoot-secrets` Secret is delivered as a SealedSecret
+  synced from `gitops/secrets/` (see the `secrets` Application); only the
+  in-cluster sealed-secrets controller can decrypt it. Plaintext secret
+  values never enter Git.
 - On the single 7 GB node, the applicationset, notifications, and dex
   components can be scaled to zero to reclaim memory if needed.

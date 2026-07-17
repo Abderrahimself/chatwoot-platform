@@ -1,5 +1,5 @@
 # Chatwoot application image — our CI-built, Trivy-scanned image in GHCR.
-# Pinned to an upstream release tag, never a moving branch or :latest (D4).
+# Pinned to an upstream release tag, never a moving branch or :latest.
 image:
   repository: ghcr.io/abderrahimself/chatwoot
   tag: v4.15.1
@@ -16,8 +16,8 @@ ingress:
   host: "chatwoot.10.17.3.165.nip.io"
 
 # Kubernetes Secret holding SECRET_KEY_BASE, POSTGRES_PASSWORD, REDIS_PASSWORD,
-# and the ActiveRecord encryption keys. Created out-of-band with kubectl and
-# never stored in Git (decision D6). See the chart README.
+# and the ActiveRecord encryption keys. Managed as a SealedSecret in
+# gitops/secrets/; plaintext never enters Git. See the chart README.
 existingSecret: "chatwoot-secrets"
 
 postgres:
@@ -62,6 +62,6 @@ sidekiq:
       memory: 1Gi
 
 # Shared ReadWriteOnce volume for Chatwoot attachments (ActiveStorage local
-# disk). Single node, so web and Sidekiq co-mount it. Backed up in week 4 (D8).
+# disk). Single node, so web and Sidekiq co-mount it.
 attachments:
   storageSize: 5Gi
