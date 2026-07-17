@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-config
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Platform-owned observability config: the Grafana dashboard and the
+    # PrometheusRule alerts. Plain manifests picked up by the Grafana sidecar
+    # and the Prometheus operator respectively.
+    repoURL: https://github.com/Abderrahimself/chatwoot-platform.git
+    targetRevision: main
+    path: gitops/observability-config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

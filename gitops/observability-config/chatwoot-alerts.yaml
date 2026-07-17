@@ -1,0 +1,59 @@
+# Three alerts scoped to this platform's real failure modes: a single-replica
+# app (no redundancy), a tight 7 GB node (OOM risk), and local-path PVCs on a
+# 40 GB disk (fill risk). Prometheus (kube-prometheus-stack) discovers this
+# rule via ruleSelectorNilUsesHelmValues=false.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: chatwoot-platform
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: chatwoot-platform
+      rules:
+        - alert: ChatwootWebDown
+          # web is single-replica, so zero available replicas = user-facing
+          # outage, not a degraded state.
+          expr: kube_deployment_status_replicas_available{namespace="chatwoot",deployment="chatwoot-web"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Chatwoot web has no available replicas"
+            description: "Deployment chatwoot-web has 0 available replicas for over 2 minutes; the dashboard is unreachable."
+
+        - alert: ChatwootContainerHighMemory
+          # Working set above 90% of the limit means an OOM kill is imminent on
+          # this memory-constrained node.
+          expr: |
+            max by (namespace, pod, container) (
+              container_memory_working_set_bytes{namespace="chatwoot", container!=""}
+            )
+            /
+            max by (namespace, pod, container) (
+              kube_pod_container_resource_limits{namespace="chatwoot", resource="memory"}
+            )
+            > 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Chatwoot container near its memory limit"
+            description: "{{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container }}) has used over 90% of its memory limit for 5 minutes; OOM kill likely."
+
+        - alert: PersistentVolumeFillingUp
+          # local-path PVCs share the 40 GB node disk; a full attachments or
+          # Postgres volume corrupts the app before the node reports pressure.
+          expr: |
+            kubelet_volume_stats_available_bytes
+            /
+            kubelet_volume_stats_capacity_bytes
+            < 0.15
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PersistentVolume under 15% free"
+            description: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has less than 15% space free for 10 minutes."

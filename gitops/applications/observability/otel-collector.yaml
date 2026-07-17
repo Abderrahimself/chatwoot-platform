@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Upstream chart, pinned (chart 0.165.0 = Collector 0.156.0). Deployment
+    # mode: receives OTLP from the Traefik ingress and forwards it to Tempo.
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: 0.165.0
+    helm:
+      values: |
+        mode: deployment
+        replicaCount: 1
+        image:
+          repository: otel/opentelemetry-collector-contrib
+        resources:
+          requests:
+            cpu: 50m
+            memory: 96Mi
+          limits:
+            memory: 192Mi
+        presets:
+          kubernetesAttributes:
+            enabled: false
+        config:
+          # Null out the chart's default receivers/exporters so the collector
+          # carries no jaeger/zipkin/prometheus/debug surface — traces only.
+          receivers:
+            jaeger: null
+            zipkin: null
+            prometheus: null
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+                http:
+                  endpoint: 0.0.0.0:4318
+          processors:
+            batch: {}
+          exporters:
+            debug: null
+            otlp/tempo:
+              endpoint: tempo.observability.svc:4317
+              tls:
+                insecure: true
+          service:
+            # This collector is traces-only: metrics come from Prometheus,
+            # logs from Alloy. Remove the chart's default metrics/logs
+            # pipelines (which otherwise self-scrape :8888 and log warnings).
+            pipelines:
+              metrics: null
+              logs: null
+              traces:
+                receivers: [otlp]
+                processors: [batch]
+                exporters: [otlp/tempo]
+            telemetry:
+              metrics:
+                level: none
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

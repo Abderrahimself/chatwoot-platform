@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Upstream single-binary Tempo, pinned (chart 1.24.4 = Tempo 2.9.0).
+    # Monolithic mode with filesystem storage — enough for one useful trace.
+    repoURL: https://grafana.github.io/helm-charts
+    chart: tempo
+    targetRevision: 1.24.4
+    helm:
+      values: |
+        tempo:
+          retention: 48h
+          storage:
+            trace:
+              backend: local
+              local:
+                path: /var/tempo/traces
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 384Mi
+          # Only the OTLP gRPC receiver is needed; the OTel Collector forwards
+          # to it. Disable the other receivers to keep the surface minimal.
+          receivers:
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+        persistence:
+          enabled: true
+          storageClassName: local-path
+          size: 5Gi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

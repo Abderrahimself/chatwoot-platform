@@ -1,0 +1,24 @@
+# k3s-managed Traefik override: enable OTLP trace export to the OTel Collector.
+#
+# k3s renders the bundled Traefik from a HelmChart; a HelmChartConfig with the
+# same name merges extra values on top and triggers a redeploy. This keeps the
+# ingress pristine (no app edit) while making it emit one useful trace per
+# request. Applied to the cluster out-of-band (Traefik is k3s-managed, not an
+# Argo CD Application); kept here for reproducibility and to seed Ansible.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    tracing:
+      # Sample every request; on a demo cluster the volume is trivial and a
+      # complete picture is more useful than statistical sampling.
+      sampleRate: 1.0
+      otlp:
+        enabled: true
+        grpc:
+          enabled: true
+          endpoint: otel-collector-opentelemetry-collector.observability.svc:4317
+          insecure: true

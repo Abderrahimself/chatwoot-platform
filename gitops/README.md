@@ -7,9 +7,11 @@ the declared state; the desired versions live in Git, not in operators' shells.
 gitops/
 |-- argocd/                 Argo CD bootstrap (install.sh, pinned version)
 |-- secrets/                SealedSecret manifests (encrypted; safe in Git)
+|-- observability/          Traefik tracing HelmChartConfig (k3s-managed, applied out-of-band)
+|-- observability-config/   Grafana dashboard + PrometheusRule alerts (synced by Argo)
 `-- applications/
     |-- chatwoot/           Argo CD Application -> helm/chatwoot
-    |-- observability/      (planned)
+    |-- observability/      Applications: metrics, logs, traces, dashboard + alerts
     `-- secrets/            Applications: sealed-secrets controller + gitops/secrets sync
 ```
 

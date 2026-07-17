@@ -1,0 +1,129 @@
+# "Chatwoot Platform Overview" dashboard, provisioned through the Grafana
+# sidecar (label grafana_dashboard: "1"). Panels use only metrics verified
+# present on this cluster: kube-state-metrics, cAdvisor, node-exporter.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatwoot-dashboard
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+data:
+  chatwoot-overview.json: |
+    {
+      "uid": "chatwoot-overview",
+      "title": "Chatwoot Platform Overview",
+      "tags": ["chatwoot", "platform"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "templating": { "list": [] },
+      "annotations": { "list": [] },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Web available replicas",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "kube_deployment_status_replicas_available{namespace=\"chatwoot\",deployment=\"chatwoot-web\"}" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ] }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Sidekiq available replicas",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "kube_deployment_status_replicas_available{namespace=\"chatwoot\",deployment=\"chatwoot-sidekiq\"}" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ] }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "gauge",
+          "title": "Node memory available",
+          "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "node_memory_MemAvailable_bytes" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "max": 7516192768,
+              "thresholds": { "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 1073741824 },
+                { "color": "green", "value": 2147483648 }
+              ] }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Chatwoot container memory (working set)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"chatwoot\",container!=\"\"})" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "bytes" } }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Chatwoot container CPU",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "legendFormat": "{{pod}}", "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"chatwoot\",container!=\"\"}[5m]))" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "id": 6,
+          "type": "bargauge",
+          "title": "PersistentVolume used fraction",
+          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "legendFormat": "{{namespace}}/{{persistentvolumeclaim}}", "expr": "1 - (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)" }
+          ],
+          "options": { "orientation": "horizontal", "displayMode": "gradient" },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": { "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.75 },
+                { "color": "red", "value": 0.85 }
+              ] }
+            }
+          }
+        }
+      ]
+    }
