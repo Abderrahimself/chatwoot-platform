@@ -102,9 +102,60 @@ for m in $(cd "$dest" && ls -1 manifest-*.sha256 2>/dev/null); do
 done
 [ "$rc" -eq 0 ] || { echo "CHECKSUM MISMATCH — do not trust these copies" >&2; exit 1; }
 
+# Encryption key escrow.
+#
+# The dump is not self-sufficient. Chatwoot encrypts a number of columns —
+# channel access tokens, webhook secrets, IMAP/SMTP passwords, OTP secrets —
+# using ActiveRecord encryption keys that live in the chatwoot-secrets Secret,
+# never in the database. Restore a dump under different keys and you get a
+# database whose row counts and message bodies all verify, and whose encrypted
+# columns are unreadable permanently. The failure is silent by construction.
+#
+# The sealed manifest in Git does not cover this: only the controller's private
+# key can decrypt it, and that key does not survive a cluster rebuild. So the
+# keys are escrowed here, beside the dump they belong to.
+keyfile="${dest}/keys-current.env"
+tmpkey="${keyfile}.part"
+
+if kubectl -n "$ns" get secret chatwoot-secrets >/dev/null 2>&1; then
+  ( umask 077
+    {
+      echo "# Secret material for namespace ${ns}, captured $(date -u +%Y-%m-%dT%H:%M:%SZ)."
+      echo "# Required to read encrypted columns in any db-*.dump taken while these"
+      echo "# keys were live. Restoring under different ACTIVE_RECORD_ENCRYPTION_*"
+      echo "# values loses every encrypted column without reporting an error."
+      echo "# Keep with the archives. Never commit."
+      echo
+    } > "$tmpkey"
+
+    for k in $(kubectl -n "$ns" get secret chatwoot-secrets \
+                 -o go-template='{{range $k,$v := .data}}{{$k}}{{"\n"}}{{end}}' | sort); do
+      v=$(kubectl -n "$ns" get secret chatwoot-secrets -o jsonpath="{.data.$k}" | base64 -d)
+      printf "%s='%s'\n" "$k" "$(printf '%s' "$v" | sed "s/'/'\\\\''/g")" >> "$tmpkey"
+    done
+  )
+
+  # Rotated keys must never silently overwrite the copy an older dump depends on.
+  if [ -f "$keyfile" ] && \
+     ! diff -q <(grep -v '^#' "$keyfile") <(grep -v '^#' "$tmpkey") >/dev/null 2>&1; then
+    prev="${dest}/keys-previous-$(date -u +%Y%m%dT%H%M%SZ).env"
+    mv "$keyfile" "$prev"
+    echo "WARNING: cluster keys differ from the escrowed copy."
+    echo "         previous copy kept as $(basename "$prev")"
+    echo "         archives older than this change need that file, not the new one."
+  fi
+  mv "$tmpkey" "$keyfile"
+  chmod 600 "$keyfile"
+  echo "escrowed encryption keys to $(basename "$keyfile")"
+else
+  echo "WARNING: secret chatwoot-secrets not found — encryption keys NOT escrowed." >&2
+  echo "         a restore into a rebuilt cluster would lose all encrypted columns." >&2
+fi
+
 echo
 echo "copied to ${dest}:"
 ls -lh "$dest"
 echo
 echo "These files are gitignored. Keep them somewhere that is not this laptop"
-echo "if they are the only copy."
+echo "if they are the only copy. keys-current.env is secret material: it belongs"
+echo "wherever you would keep a password, not in shared storage."

@@ -42,3 +42,5 @@ backup/**/*.tar.gz
 backup/**/*.tgz
 backup/**/*.sha256
 backup/**/*.part
+# Escrowed encryption keys — secret material, never committed
+backup/**/*.env

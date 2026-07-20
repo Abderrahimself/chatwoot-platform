@@ -19,6 +19,14 @@ Every run writes three files, sharing one UTC timestamp:
 They live on the `chatwoot-backup-archive` volume in the `chatwoot` namespace,
 and on any machine `scripts/fetch-backup.sh` has copied them to.
 
+A fourth file, `keys-current.env`, is written by `scripts/fetch-backup.sh` next
+to the archives. It holds the application Secret — including the
+`ACTIVE_RECORD_ENCRYPTION_*` values that several tables are encrypted with. It
+is not part of a timestamped set, because it reflects the cluster at fetch time
+rather than at backup time; if the keys are ever rotated the script preserves
+the superseded copy as `keys-previous-<ts>.env` and tells you so. A dump is only
+fully restorable alongside the keys that were live when it was taken.
+
 ## Before you start
 
 ```bash
@@ -191,10 +199,46 @@ row counts alone — the application has to serve the data back.
 - **The archive volume is not disaster recovery on its own.** It is local-path
   storage on the same disk as the database. `scripts/fetch-backup.sh` is what
   puts a copy somewhere the node's failure cannot reach.
-- **Encryption keys matter.** Chatwoot encrypts some columns with the
-  `ACTIVE_RECORD_ENCRYPTION_*` values from the application Secret. Restoring a
-  database against different keys leaves those columns unreadable. Keep the
-  sealed secret and the backups in sync; see `gitops/secrets/README.md`.
-- **Rebuilt cluster.** The sealing key lives only in the cluster. After a
-  rebuild, restore secrets before restoring data, or the application will start
-  against a database it cannot decrypt.
+- **Encryption keys matter, and their loss is silent.** Chatwoot encrypts
+  channel access tokens, webhook secrets, IMAP/SMTP passwords and OTP secrets
+  with the `ACTIVE_RECORD_ENCRYPTION_*` values from the application Secret.
+  Restore a dump under different keys and every check in step 6 still passes —
+  row counts, message bodies, the health endpoint — while those columns are
+  unreadable for good. Row counts cannot detect this. `scripts/fetch-backup.sh`
+  escrows the keys to `keys-current.env` for exactly this reason.
+
+## Restoring into a rebuilt cluster
+
+A rebuild is not the same as the restore above, because two things do not
+survive it.
+
+**The sealing key dies with the cluster.** The SealedSecret manifests in
+`gitops/secrets/` can only be decrypted by the controller that sealed them. A
+new controller generates a new key pair and cannot read them. Do not expect
+Argo CD to deliver working secrets after a rebuild — it will sync the manifests
+and the controller will fail to unseal them.
+
+Recreate the Secret from the escrow copy **before** restoring data, so the
+application never starts against a database it cannot decrypt:
+
+```bash
+# From the escrowed copy taken while the old cluster was alive.
+set -a; . backup/keys-current.env; set +a
+
+kubectl -n chatwoot create secret generic chatwoot-secrets \
+  --from-literal=SECRET_KEY_BASE="$SECRET_KEY_BASE" \
+  --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+  --from-literal=REDIS_PASSWORD="$REDIS_PASSWORD" \
+  --from-literal=ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY="$ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY" \
+  --from-literal=ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY="$ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY" \
+  --from-literal=ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT="$ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"
+```
+
+Then re-seal it against the new controller and commit the replacement manifest,
+per `gitops/secrets/README.md`. The old sealed file is now dead weight.
+
+**Traefik tracing is applied out of band.** `gitops/observability/traefik-tracing.yaml`
+configures the k3s-bundled Traefik, which is not an Argo CD application. Re-apply
+it after a rebuild or traces stop at the ingress.
+
+Only then follow the restore steps above.
