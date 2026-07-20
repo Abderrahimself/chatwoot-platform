@@ -61,7 +61,7 @@ All components run as lightweight single replicas with short retention (Promethe
 - [x] GitOps delivery and drift correction — Argo CD
 - [x] Secret management — Sealed Secrets
 - [x] Observability — metrics, dashboards, centralized logs, tracing
-- [ ] Backup and tested restore — PostgreSQL + attachments
+- [x] Backup and tested restore — PostgreSQL + attachments
 
 ## Repository Layout
 
