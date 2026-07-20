@@ -78,7 +78,10 @@ All components run as lightweight single replicas with short retention (Promethe
 
 ## Getting Started
 
-Requirements: libvirt/KVM, Terraform >= 1.5, an SSH key at `~/.ssh/id_ed25519.pub`.
+Requirements: libvirt/KVM, Terraform >= 1.5, Ansible, kubectl, Helm, and an SSH
+key at `~/.ssh/id_ed25519.pub`.
+
+**1. Provision the VM.**
 
 ```bash
 cd infra
@@ -87,7 +90,47 @@ terraform apply
 terraform output k3s_node_ssh   # prints the SSH command for the provisioned VM
 ```
 
-The VM network (`10.17.3.0/24`, NAT) provides DHCP and local DNS for the `platform.local` domain.
+The VM network (`10.17.3.0/24`, NAT) provides DHCP and local DNS for the
+`platform.local` domain. The address is DHCP-assigned — read it from
+`terraform output -raw k3s_node_ip` rather than hardcoding it.
+
+**2. Install k3s.** The inventory resolves the VM address from Terraform
+output, so there is nothing to fill in. The playbook is idempotent.
+
+```bash
+cd infra/ansible
+ansible-playbook site.yml
+export KUBECONFIG=$PWD/.artifacts/kubeconfig
+kubectl get nodes
+```
+
+**3. Bootstrap Argo CD**, then register the applications. Each manifest is
+applied once; from then on Argo CD syncs that application from Git.
+
+```bash
+gitops/argocd/install.sh
+kubectl apply -f gitops/applications/secrets/controller.yaml   # before any sealed secret
+kubectl apply -f gitops/applications/chatwoot/application.yaml
+kubectl apply -f gitops/applications/backup/application.yaml
+kubectl apply -f gitops/applications/observability/
+```
+
+Secrets are the one thing Git cannot carry in the clear: seal them first, as
+described in `gitops/secrets/README.md`. Traefik tracing is configured
+out-of-band in `gitops/observability/` because the ingress is managed by k3s
+rather than Argo CD.
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| `docs/architecture.md` | Components, delivery flow, and the boundary against upstream |
+| `docs/resilience.md` | Measured recovery behaviour: pod loss, rollouts, drift, restore |
+| `docs/runbooks/restore.md` | Restoring the database and attachments from an archive |
+| `helm/chatwoot/README.md` | Application chart and its values |
+| `helm/backup/README.md` | Backup schedule, retention, and operation |
+| `gitops/README.md` | Repository layout and the sync flow |
+| `gitops/secrets/README.md` | Sealing secrets and the cluster-rebuild caveat |
 
 ## Related Repositories
 
