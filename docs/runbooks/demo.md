@@ -175,6 +175,20 @@ Grafana at `http://$GRAFANA` (admin credentials come from the sealed
 - **Alerts** — three rules are loaded and evaluating: web down, container memory
   above 90% of its limit, and a volume filling up.
 
+  If segment 3 was run, `ChatwootWebDown` will have gone to `pending` and then
+  resolved without ever firing. That is correct, not a fault: its `for` window
+  is two minutes and the outage is around thirty seconds, so a single pod
+  deletion is deliberately not a page. Say so rather than hoping nobody checks —
+  an alert that fired on every self-healing blip would be worse. To show it
+  actually firing, the pod has to stay down longer than the window:
+
+  ```bash
+  kubectl -n chatwoot scale deploy/chatwoot-web --replicas=0   # pause auto-sync first
+  ```
+
+  Auto-sync reverts a manual scale within about half a minute, so this needs the
+  same pause described in segment 4.
+
 ```bash
 kubectl -n observability get prometheusrule chatwoot-platform \
   -o jsonpath='{range .spec.groups[*].rules[*]}{.alert}{"  "}{.labels.severity}{"\n"}{end}'
