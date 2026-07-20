@@ -17,7 +17,7 @@ ingress:
 
 # Kubernetes Secret holding SECRET_KEY_BASE, POSTGRES_PASSWORD, REDIS_PASSWORD,
 # and the ActiveRecord encryption keys. Managed as a SealedSecret in
-# gitops/secrets/; plaintext never enters Git. See the chart README.
+# gitops/secrets/; plaintext never enters Git.
 existingSecret: "chatwoot-secrets"
 
 postgres:

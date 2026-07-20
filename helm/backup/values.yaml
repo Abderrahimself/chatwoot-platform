@@ -2,8 +2,9 @@
 #
 # Runs as a CronJob in the application namespace so it can reach the database
 # Service and co-mount the attachments volume. The archives land on a
-# PersistentVolumeClaim; see the chart README for why that is only half a
-# backup and what makes it whole.
+# PersistentVolumeClaim on the same node as the data they protect, so they
+# survive a lost pod or volume but not a lost node. Pulling a copy off the
+# node with scripts/fetch-backup.sh is what makes the backup whole.
 
 # 02:30 UTC daily — outside any plausible usage window for this deployment.
 schedule: "30 2 * * *"
