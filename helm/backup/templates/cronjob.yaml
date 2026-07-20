@@ -1,0 +1,97 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "backup.fullname" . }}
+  labels:
+    {{- include "backup.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cronjob
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  # A slow run must never overlap the next one: two pg_dumps competing for a
+  # 512Mi database container is a good way to turn a backup into an outage.
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "backup.labels" . | nindent 12 }}
+            app.kubernetes.io/component: cronjob
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: {{ .Values.image }}
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+
+                  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+                  dest=/archive
+                  db="${dest}/db-${ts}.dump"
+                  att="${dest}/attachments-${ts}.tar.gz"
+
+                  echo "[backup] starting ${ts}"
+
+                  # Custom format: compressed, and restorable selectively with
+                  # pg_restore. Written to .part first, then renamed, so an
+                  # interrupted run never leaves a file that looks complete.
+                  pg_dump -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -Fc -f "${db}.part"
+                  mv "${db}.part" "${db}"
+                  echo "[backup] database    -> $(basename "${db}") ($(du -h "${db}" | cut -f1))"
+
+                  # ActiveStorage writes attachment blobs once and never
+                  # mutates them, so a live tar is consistent for this workload.
+                  tar czf "${att}.part" -C /storage .
+                  mv "${att}.part" "${att}"
+                  echo "[backup] attachments -> $(basename "${att}") ($(du -h "${att}" | cut -f1))"
+
+                  # Checksums let a restore prove the copy is byte-intact,
+                  # which matters most for archives pulled off the node.
+                  ( cd "${dest}" && sha256sum "$(basename "${db}")" "$(basename "${att}")" > "manifest-${ts}.sha256" )
+
+                  # Retention. Bounds this volume only; copies taken off the
+                  # node live as long as the operator keeps them.
+                  find "${dest}" -maxdepth 1 -name 'db-*.dump'            -mtime +{{ .Values.retentionDays }} -delete
+                  find "${dest}" -maxdepth 1 -name 'attachments-*.tar.gz' -mtime +{{ .Values.retentionDays }} -delete
+                  find "${dest}" -maxdepth 1 -name 'manifest-*.sha256'    -mtime +{{ .Values.retentionDays }} -delete
+                  # Debris from a killed run; harmless but should not accumulate.
+                  find "${dest}" -maxdepth 1 -name '*.part' -mtime +1 -delete
+
+                  echo "[backup] complete. archive now holds:"
+                  ls -lh "${dest}"
+              env:
+                - name: PGHOST
+                  value: {{ .Values.target.postgresHost | quote }}
+                - name: PGUSER
+                  value: {{ .Values.target.postgresUser | quote }}
+                - name: PGDATABASE
+                  value: {{ .Values.target.postgresDatabase | quote }}
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.target.existingSecret }}
+                      key: POSTGRES_PASSWORD
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              volumeMounts:
+                - name: archive
+                  mountPath: /archive
+                - name: storage
+                  mountPath: /storage
+                  readOnly: true
+          volumes:
+            - name: archive
+              persistentVolumeClaim:
+                claimName: {{ include "backup.fullname" . }}-archive
+            # The live attachments volume, mounted read-only. ReadWriteOnce is
+            # fine here: single node, so this pod co-mounts with web/Sidekiq.
+            - name: storage
+              persistentVolumeClaim:
+                claimName: {{ .Values.target.attachmentsClaim }}

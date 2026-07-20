@@ -1,0 +1,5 @@
+apiVersion: v2
+name: backup
+description: Scheduled PostgreSQL and attachment backups for the Chatwoot deployment
+type: application
+version: 0.1.0

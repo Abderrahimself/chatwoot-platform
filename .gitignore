@@ -40,3 +40,5 @@ backup/**/*.dump
 backup/**/*.tar
 backup/**/*.tar.gz
 backup/**/*.tgz
+backup/**/*.sha256
+backup/**/*.part

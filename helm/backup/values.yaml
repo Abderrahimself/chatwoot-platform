@@ -1,0 +1,42 @@
+# Daily backup of the Chatwoot database and attachment volume.
+#
+# Runs as a CronJob in the application namespace so it can reach the database
+# Service and co-mount the attachments volume. The archives land on a
+# PersistentVolumeClaim; see the chart README for why that is only half a
+# backup and what makes it whole.
+
+# 02:30 UTC daily — outside any plausible usage window for this deployment.
+schedule: "30 2 * * *"
+
+# Days to keep archives on the in-cluster volume. Copies pulled off the node
+# are kept for as long as the operator keeps them; this only bounds local disk.
+retentionDays: 7
+
+storage:
+  # Sized well above the current footprint: the database dump is a few hundred
+  # kB and attachments are small, but headroom costs nothing on a thin volume.
+  size: 5Gi
+
+# The Chatwoot release this backs up. Names rather than derived values, so this
+# chart has no hidden coupling to the other chart's helpers.
+target:
+  postgresHost: chatwoot-postgres
+  postgresUser: postgres
+  postgresDatabase: chatwoot_production
+  existingSecret: chatwoot-secrets
+  attachmentsClaim: chatwoot-storage
+
+# Same image as the database itself: pg_dump must not be older than the server
+# it dumps, and matching the tag makes that true by construction.
+image: "pgvector/pgvector:pg16"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# Job history retained in the API for inspecting past runs.
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3

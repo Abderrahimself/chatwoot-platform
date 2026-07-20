@@ -55,12 +55,12 @@ All components run as lightweight single replicas with short retention (Promethe
 ## Status
 
 - [x] VM provisioning — Terraform + libvirt, cloud-init, key-only SSH
-- [ ] Node configuration and k3s installation — Ansible
-- [ ] Chatwoot deployment — Helm chart (web, Sidekiq, PostgreSQL, Redis, migrations, ingress)
-- [ ] Image build and scan pipeline — GitHub Actions, Trivy, GHCR
-- [ ] GitOps delivery and drift correction — Argo CD
+- [x] Node configuration and k3s installation — Ansible
+- [x] Chatwoot deployment — Helm chart (web, Sidekiq, PostgreSQL, Redis, migrations, ingress)
+- [x] Image build and scan pipeline — GitHub Actions, Trivy, GHCR
+- [x] GitOps delivery and drift correction — Argo CD
 - [x] Secret management — Sealed Secrets
-- [ ] Observability — metrics, dashboards, centralized logs, tracing
+- [x] Observability — metrics, dashboards, centralized logs, tracing
 - [ ] Backup and tested restore — PostgreSQL + attachments
 
 ## Repository Layout
@@ -68,13 +68,12 @@ All components run as lightweight single replicas with short retention (Promethe
 ```text
 .
 |-- infra/           Terraform (libvirt VM) and Ansible
-|-- helm/chatwoot/   Helm chart for the Chatwoot stack
-|-- gitops/          Argo CD and application manifests
-|-- observability/   Dashboards, alerts, collector configuration
-|-- backup/          Backup and restore jobs (scripts and manifests only)
+|-- helm/            Helm charts: the Chatwoot stack and the backup CronJob
+|-- gitops/          Argo CD applications, sealed secrets, dashboards and alerts
+|-- backup/          Local download target for fetched archives (never committed)
 |-- local-run/       Compose override for running upstream Chatwoot locally
-|-- scripts/         Operational tooling (hygiene gate, helpers)
-`-- docs/            Architecture and operations documentation
+|-- scripts/         Operational tooling (hygiene gate, backup fetch)
+`-- docs/            Architecture and operations runbooks
 ```
 
 ## Getting Started

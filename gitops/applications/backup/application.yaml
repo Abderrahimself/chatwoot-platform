@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backup
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Abderrahimself/chatwoot-platform.git
+    targetRevision: main
+    path: helm/backup
+    helm:
+      # Names the CronJob and archive volume chatwoot-backup*, keeping them
+      # distinct from the application release in the same namespace.
+      releaseName: chatwoot-backup
+  destination:
+    server: https://kubernetes.default.svc
+    # Same namespace as the application: the CronJob needs the database
+    # Service, the application Secret, and the attachments volume, all of
+    # which are namespaced.
+    namespace: chatwoot
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

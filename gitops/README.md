@@ -11,6 +11,7 @@ gitops/
 |-- observability-config/   Grafana dashboard + PrometheusRule alerts (synced by Argo)
 `-- applications/
     |-- chatwoot/           Argo CD Application -> helm/chatwoot
+    |-- backup/             Argo CD Application -> helm/backup
     |-- observability/      Applications: metrics, logs, traces, dashboard + alerts
     `-- secrets/            Applications: sealed-secrets controller + gitops/secrets sync
 ```
