@@ -127,6 +127,7 @@ rather than Argo CD.
 | `docs/architecture.md` | Components, delivery flow, and the boundary against upstream |
 | `docs/resilience.md` | Measured recovery behaviour: pod loss, rollouts, drift, restore |
 | `docs/runbooks/restore.md` | Restoring the database and attachments from an archive |
+| `docs/runbooks/demo.md` | Walkthrough of the platform, including the rebuild path |
 | `helm/chatwoot/README.md` | Application chart and its values |
 | `helm/backup/README.md` | Backup schedule, retention, and operation |
 | `gitops/README.md` | Repository layout and the sync flow |
